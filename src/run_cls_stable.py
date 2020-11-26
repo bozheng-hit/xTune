@@ -102,6 +102,7 @@ class NoisedDataGenerator(object):
                  enable_word_dropout=False,
                  word_dropout_rate=0.1,
                  enable_translate_data=False,
+                 translation_path=None,
                  train_language=None,
                  data_dir=None,
                  translate_different_pair=False,
@@ -160,7 +161,7 @@ class NoisedDataGenerator(object):
         self.translate_train_dicts = []
         self.tgt2src_dict = {}
         self.tgt2src_cnt = {}
-
+        self.translation_path = translation_path
         self.enable_code_switch = enable_code_switch
         self.code_switch_ratio = code_switch_ratio / self.overall_ratio
         assert self.code_switch_ratio <= 1.0
@@ -538,7 +539,7 @@ class NoisedDataGenerator(object):
         for i, language in enumerate(self.train_languages):
             logger.info("reading training data from lang {}".format(language))
             processor = processors[self.task_name](language=language, train_language=language)
-            src2tgt_dict = processor.get_translate_train_dict(self.data_dir, self.tgt2src_dict, self.tgt2src_cnt)
+            src2tgt_dict = processor.get_translate_train_dict(self.translation_path, self.tgt2src_dict, self.tgt2src_cnt)
             self.translate_train_dicts.append(src2tgt_dict)
 
     def get_train_steps(self, dataloader_size, args):
@@ -1201,6 +1202,7 @@ def main():
     parser.add_argument("--enable_word_dropout", action="store_true", help="Whether to enable word dropout.")
     parser.add_argument("--word_dropout_rate", default=0.1, type=float, help="word dropout rate.")
     parser.add_argument("--enable_translate_data", action="store_true", help="Whether to enable translate data.")
+    parser.add_argument("--translation_path", default=None, type=str, help="translation path")
     parser.add_argument("--translate_languages", default=None, type=str, help="translate languages")
     parser.add_argument("--translate_different_pair", action="store_true", help="Whether to translate different pair.")
     parser.add_argument("--translate_en_data", action="store_true", help="Whether to translate en data.")
@@ -1430,6 +1432,7 @@ def main():
             enable_word_dropout=args.enable_word_dropout,
             word_dropout_rate=args.word_dropout_rate,
             enable_translate_data=args.enable_translate_data,
+            translation_path=args.translation_path,
             train_language=args.language if args.translate_languages is None else args.translate_languages,
             data_dir=args.data_dir,
             translate_different_pair=args.translate_different_pair,

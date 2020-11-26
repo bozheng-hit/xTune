@@ -946,8 +946,14 @@ def train(args, train_examples, train_dataset, model, stable_model, tokenizer, l
                             # Take care of distributed/parallel training
                             model_to_save = model.module if hasattr(model, "module") else model
                             model_to_save.save_pretrained(output_dir)
+                            tokenizer.save_pretrained(output_dir)
+
                             torch.save(args, os.path.join(output_dir, "training_args.bin"))
                             logger.info("Saving the best model checkpoint to %s", output_dir)
+
+                            torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
+                            torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
+                            logger.info("Saving optimizer and scheduler states to %s", output_dir)
                             logger.info("Reset patience to 0")
                             patience = 0
                         else:

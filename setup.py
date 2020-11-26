@@ -44,7 +44,6 @@ from pathlib import Path
 
 from setuptools import find_packages, setup
 
-
 # Remove stale transformers.egg-info directory to avoid https://github.com/pypa/pip/issues/5466
 stale_egg_info = Path(__file__).parent / "transformers.egg-info"
 if stale_egg_info.exists():
@@ -59,7 +58,6 @@ if stale_egg_info.exists():
         ).format(stale_egg_info)
     )
     shutil.rmtree(stale_egg_info)
-
 
 extras = {}
 
@@ -115,6 +113,8 @@ setup(
         "seqeval == 0.0.12",
         # for torch
         "torch",
+        # for preprocessing
+        "networkx == 1.11",
     ],
     extras_require=extras,
     scripts=["transformers-cli"],

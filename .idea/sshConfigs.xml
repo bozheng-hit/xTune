@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig host="gcrsandbox125.redmond.corp.microsoft.com" id="988a9131-1394-4843-9ed7-96b2f77f3df5" keyPath="C:\workspace\gcr_rsa.ppk" port="22" nameFormat="DESCRIPTIVE" username="FAREAST.v-zhebo" />
+    </configs>
+  </component>
+</project>
