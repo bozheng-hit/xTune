@@ -1,47 +1,40 @@
-# stabletune
+# StableTune
+
 ## Environment
 
 DockerFile: `dancingsoul/pytorch:1.6.0-cuda10.1-cudnn7-devel-apex`
 
-Install the fine-tuning code: `pip install ./`
+Install the fine-tuning code: `pip install --user .`
 
 ## Data & Model Preparation
 
 ### XTREME Datasets  
 
-To download XTREME data, first create a download folder with mkdir -p download in the root of this project. 
-You then need to manually download `panx_dataset` (for NER) [here][2], (note that it will download as `AmazonPhotos.zip`) to the download directory.
-Finally, run the following command to download the remaining datasets:
+1) Create a download folder with mkdir -p download in the root of this project. 
+2) manually download `panx_dataset` (for NER) [here][2], (note that it will download as `AmazonPhotos.zip`) to the download directory.
+3) run the following command to download the remaining datasets: `bash scripts/download_data.sh`
+The code of downloading dataset from XTREME is from [xtreme offical repo][1].
 
-`bash scripts/download_data.sh`
-
-The code of downloading dataset from XTREME is from [xtreme offical repo][1], 
-note we keep the labels in test set for easier evaluation.
-
-To prevent accidental evaluation on the test sets while running experiments, use code in from [xtreme offical repo][1], which removes labels of the test data during pre-processing and changes the order of the test sentences for cross-lingual sentence retrieval. 
+Note that we keep the labels in test set for easier evaluation. To prevent accidental evaluation on the test sets while running experiments, the code of [xtreme offical repo][1] removes labels of the test data during pre-processing and changes the order of the test sentences for cross-lingual sentence retrieval. 
 Replace `csv.writer(fout, delimiter='\t')` with `csv.writer(fout, delimiter='\t', quoting=csv.QUOTE_NONE, quotechar='')` in utils_process.py if using XTREME official repo.
+
 ### Translations
 
-XTREME provides translations for SQuAD v1.1 (only train and dev), MLQA, PAWS-X, TyDiQA-GoldP, XNLI, and XQuAD,
-which can be downloaded from [here][3]. Manully move the `xtreme_translations` folder to the root of this project. 
+XTREME provides translations for SQuAD v1.1 (only train and dev), MLQA, PAWS-X, TyDiQA-GoldP, XNLI, and XQuAD, which can be downloaded from [here][3]. The `xtreme_translations` folder should be moved to the root of this project. 
 
-The target language translations for panx and udpos are obtained with Google Translate, since they are not provided.
-Our processed version can be downloaded from [here][4]. Manully merge it with the previous `xtreme_translations` folder.
+The target language translations for panx and udpos are obtained with Google Translate, since they are not provided. Our processed version can be downloaded from [here][4]. It should be merged with the above `xtreme_translations` folder.
 
 ### Bi-lingual dictionaries
 
-We obtain the bi-lingual dictionaries from [MUSE][6] repo.
-For convenience, download them from [here][7] and move it to the download directory, i.e. ./download/dicts.
+We obtain the bi-lingual dictionaries from the [MUSE][6] repo. For convenience, you can download them from [here][7] and move it to the download directory, i.e., ./download/dicts.
 
 ### Models
-Currently only XLM-Roberta is supported. We utilize the [huggingface][5] version, which can be downloaded with `bash download_model.sh`.
 
+XLM-Roberta is supported. We utilize the [huggingface][5] format, which can be downloaded with `bash download_model.sh`.
 
+## Fine-tuning
 
-## Fine-tuning Command
-
-Our experiments is conducted on 32GB V100. 
-Reduce `per_gpu_train_batch_size` while increase `gradient_accumulation_steps` or use multi-gpu if needed.
+Our experiments were conducted on 32GB V100. Reduce `per_gpu_train_batch_size` while increase `gradient_accumulation_steps`, or use multi-gpu if needed.
 
 The complete stabletune is consisted of a two-stage training process.
 
