@@ -38,7 +38,7 @@ Our experiments were conducted on 32GB V100. Reduce `per_gpu_train_batch_size` w
 
 The complete stabletune consists of a two-stage training process.
 
-### Translate-Train-All Setting
+### Fine-tune model on English training set and translated training sets (`translate-train-all`)
 
 `bash ./scripts/train.sh translate-train-all [task] [model] [stage] [gpu] [data_dir] [output_dir]`
 
@@ -48,7 +48,7 @@ For instance, run the following command to run a full stabletune process on XNLI
 
 `bash ./scripts/train.sh translate-train-all xnli xlm-roberta-base 2`
 
-### Cross-Lingual Transfer Setting
+### Fine-tune model on English training set (`cross-lingual-transfer`)
 
 `bash ./scripts/train.sh cross-lingual-transfer [task] [model] [stage] [gpu] [data_dir] [output_dir]`
 
@@ -58,12 +58,12 @@ For instance, run the following command to run a full stabletune process on XNLI
 
 `bash ./scripts/train.sh cross-lingual-transfer xnli xlm-roberta-base 2`
 
-# Paper
+# Reference
 
-[1]: https://github.com/google-research/xtreme
-[2]: https://www.amazon.com/clouddrive/share/d3KGCRCIYwhKJF0H3eWA26hjg2ZCRhjpEQtDL70FSBN?_encoding=UTF8&%2AVersion%2A=1&%2Aentries%2A=0&mgh=1
-[3]: https://console.cloud.google.com/storage/browser/xtreme_translations
-[4]: https://drive.google.com/drive/folders/1Rdbc0Us_4I5MpRCwLASxBwqSW8_dlF87?usp=sharing
-[5]: https://github.com/huggingface/transformers/
-[6]: https://github.com/facebookresearch/MUSE
-[7]: https://drive.google.com/drive/folders/1k9rQinwUXicglA5oyzo9xtgqiuUVDkjT?usp=sharing
+1. https://github.com/google-research/xtreme
+2. https://www.amazon.com/clouddrive/share/d3KGCRCIYwhKJF0H3eWA26hjg2ZCRhjpEQtDL70FSBN?_encoding=UTF8&%2AVersion%2A=1&%2Aentries%2A=0&mgh=1
+3. https://console.cloud.google.com/storage/browser/xtreme_translations
+4. https://drive.google.com/drive/folders/1Rdbc0Us_4I5MpRCwLASxBwqSW8_dlF87?usp=sharing
+5. https://github.com/huggingface/transformers/
+6. https://github.com/facebookresearch/MUSE
+7. https://drive.google.com/drive/folders/1k9rQinwUXicglA5oyzo9xtgqiuUVDkjT?usp=sharing
