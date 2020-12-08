@@ -36,7 +36,7 @@ XLM-Roberta is supported. We utilize the [huggingface][5] format, which can be d
 
 Our experiments were conducted on 32GB V100. Reduce `per_gpu_train_batch_size` while increase `gradient_accumulation_steps`, or use multi-gpu if needed.
 
-The complete stabletune is consisted of a two-stage training process.
+The complete stabletune consists of a two-stage training process.
 
 ### Translate-Train-All Setting
 
