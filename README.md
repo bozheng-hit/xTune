@@ -32,33 +32,49 @@ We obtain the bi-lingual dictionaries from the [MUSE][6] repo. For convenience, 
 
 XLM-Roberta is supported. We utilize the [huggingface][5] format, which can be downloaded with `bash download_model.sh`.
 
-## Fine-tuning
+## Fine-tuning Usage
 
-Our experiments were conducted on 32GB V100. Reduce `per_gpu_train_batch_size` while increase `gradient_accumulation_steps`, or use multi-gpu if needed.
+Our default settings were using Nvidia V100-32GB GPU cards. If there were out-of-memory errors, you can reduce `per_gpu_train_batch_size` while increasing `gradient_accumulation_steps`, or use multi-GPU training.
 
-The complete stabletune consists of a two-stage training process.
+StableTune consists of a two-stage training process.
+- Stage 1: regularize KL(example x, data augment of x)
+- Stage 2: regularize KL(current model, the model of Stage 1)
 
-### Fine-tune model on English training set and translated training sets (`translate-train-all`)
+It's recommended to use both Stage 1 and Stage 2 for token-level tasks, such as sequential labeling, and question answering. For text classification, you can only use Stage 1 if the computation budget was limited.
 
-`bash ./scripts/train.sh translate-train-all [task] [model] [stage] [gpu] [data_dir] [output_dir]`
+```bash
+bash ./scripts/train.sh [setting] [dataset] [model] [stage] [gpu] [data_dir] [output_dir]
+```
+where the options are described as follows:
+- `[setting]`: `translate-train-all` (using input translation for the languages other than English) or `cross-lingual-transfer` (only using English for zero-shot cross-lingual transfer)
+- `[dataset]`: dataset names in XTREME, i.e., `xnli`, `panx`, `pawsx`, `udpos`, `mlqa`, `tydiqa`, `xquad`
+- `[model]`: `xlm-roberta-base`, `xlm-roberta-large`
+- `[stage]`: `1` (first stage), `2` (second stage)
+- `[gpu]`: used to set environment variable `CUDA_VISIBLE_DEVICES`
+- `[data_dir]`: folder of training data
+- `[output_dir]`: folder of fine-tuning output
 
-For instance, run the following command to run a full stabletune process on XNLI with xlm-roberta-base model:
+## Examples: XTREME Tasks
 
-`bash ./scripts/train.sh translate-train-all xnli xlm-roberta-base 1`
+### XNLI fine-tuning on English training set and translated training sets (`translate-train-all`)
 
-`bash ./scripts/train.sh translate-train-all xnli xlm-roberta-base 2`
+```bash
+# run stage 1 of StableTune
+bash ./scripts/train.sh translate-train-all xnli xlm-roberta-base 1
+# run stage 2 of StableTune (optional)
+bash ./scripts/train.sh translate-train-all xnli xlm-roberta-base 2
+```
 
-### Fine-tune model on English training set (`cross-lingual-transfer`)
+### XNLI fine-tuning on English training set (`cross-lingual-transfer`)
 
-`bash ./scripts/train.sh cross-lingual-transfer [task] [model] [stage] [gpu] [data_dir] [output_dir]`
+```bash
+# run stage 1 of StableTune
+bash ./scripts/train.sh cross-lingual-transfer xnli xlm-roberta-base 1
+# run stage 2 of StableTune (optional)
+bash ./scripts/train.sh cross-lingual-transfer xnli xlm-roberta-base 2
+```
 
-For instance, run the following command to run a full stabletune process on XNLI with xlm-roberta-base model:
-
-`bash ./scripts/train.sh cross-lingual-transfer xnli xlm-roberta-base 1`
-
-`bash ./scripts/train.sh cross-lingual-transfer xnli xlm-roberta-base 2`
-
-# Reference
+## Reference
 
 1. https://github.com/google-research/xtreme
 2. https://www.amazon.com/clouddrive/share/d3KGCRCIYwhKJF0H3eWA26hjg2ZCRhjpEQtDL70FSBN?_encoding=UTF8&%2AVersion%2A=1&%2Aentries%2A=0&mgh=1
