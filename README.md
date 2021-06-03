@@ -1,4 +1,4 @@
-# StableTune
+# xTune
 
 ## Environment
 
@@ -36,9 +36,9 @@ XLM-Roberta is supported. We utilize the [huggingface][5] format, which can be d
 
 Our default settings were using Nvidia V100-32GB GPU cards. If there were out-of-memory errors, you can reduce `per_gpu_train_batch_size` while increasing `gradient_accumulation_steps`, or use multi-GPU training.
 
-StableTune consists of a two-stage training process.
-- Stage 1: regularize KL(example x, data augment of x)
-- Stage 2: regularize KL(current model, the model of Stage 1)
+xTune consists of a two-stage training process.
+- Stage 1: fine-tuning with example consistency on the English training set.
+- Stage 2: fine-tuning with example consistency on the augmented training set and regularize model consistency with the model from Stage 1.
 
 It's recommended to use both Stage 1 and Stage 2 for token-level tasks, such as sequential labeling, and question answering. For text classification, you can only use Stage 1 if the computation budget was limited.
 
@@ -59,18 +59,18 @@ where the options are described as follows:
 ### XNLI fine-tuning on English training set and translated training sets (`translate-train-all`)
 
 ```bash
-# run stage 1 of StableTune
+# run stage 1 of xTune
 bash ./scripts/train.sh translate-train-all xnli xlm-roberta-base 1
-# run stage 2 of StableTune (optional)
+# run stage 2 of xTune (optional)
 bash ./scripts/train.sh translate-train-all xnli xlm-roberta-base 2
 ```
 
 ### XNLI fine-tuning on English training set (`cross-lingual-transfer`)
 
 ```bash
-# run stage 1 of StableTune
+# run stage 1 of xTune
 bash ./scripts/train.sh cross-lingual-transfer xnli xlm-roberta-base 1
-# run stage 2 of StableTune (optional)
+# run stage 2 of xTune (optional)
 bash ./scripts/train.sh cross-lingual-transfer xnli xlm-roberta-base 2
 ```
 
