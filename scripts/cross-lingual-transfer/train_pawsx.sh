@@ -45,7 +45,7 @@ fi
 if [ $STAGE == 1 ]; then
   OUTPUT_DIR="${OUT_DIR}/${TASK}/${MODEL}-LR${LR}-epoch${EPOCH}-MaxLen${MAXL}-CS-csr${CSR}-R1_LAMBDA${R1_LAMBDA}/"
   mkdir -p $OUTPUT_DIR
-  python ./src/run_cls_stable.py --model_type xlmr \
+  python ./src/run_cls.py --model_type xlmr \
         --model_name_or_path $MODEL_PATH \
         --language $LANGS \
         --train_language en \
@@ -70,8 +70,8 @@ if [ $STAGE == 1 ]; then
         --seed 1 \
         --fp16 --fp16_opt_level O2 \
         --warmup_steps -1 \
-        --enable_kl_loss \
-        --kl_lambda $R1_LAMBDA \
+        --enable_r1_loss \
+        --r1_lambda $R1_LAMBDA \
         --original_loss \
         --overall_ratio 1.0 \
         --enable_code_switch \
@@ -79,10 +79,10 @@ if [ $STAGE == 1 ]; then
         --dict_dir $DATA_DIR/dicts \
         --dict_languages de,es,fr,ja,ko,zh
 elif [ $STAGE == 2 ]; then
-  STABLE_MODEL_PATH="${OUT_DIR}/${TASK}/${MODEL}-LR${LR}-epoch${EPOCH}-MaxLen${MAXL}-CS-csr${CSR}-R1_LAMBDA${R1_LAMBDA}/checkpoint-best"
+  FIRST_STAGE_MODEL_PATH="${OUT_DIR}/${TASK}/${MODEL}-LR${LR}-epoch${EPOCH}-MaxLen${MAXL}-CS-csr${CSR}-R1_LAMBDA${R1_LAMBDA}/checkpoint-best"
   OUTPUT_DIR="${OUT_DIR}/${TASK}/${MODEL}-LR${LR}-epoch${EPOCH}-MaxLen${MAXL}-CS-csr${CSR}-R1_Lambda${R1_LAMBDA}-Aug1.0-CS-R2_Lambda${R2_LAMBDA}/"
   mkdir -p $OUTPUT_DIR
-  python ./src/run_cls_stable.py --model_type xlmr \
+  python ./src/run_cls.py --model_type xlmr \
         --model_name_or_path $MODEL_PATH \
         --language $LANGS \
         --train_language en \
@@ -107,17 +107,17 @@ elif [ $STAGE == 2 ]; then
         --seed 1 \
         --fp16 --fp16_opt_level O2 \
         --warmup_steps -1 \
-        --enable_kl_loss \
-        --kl_lambda $R1_LAMBDA \
+        --enable_r1_loss \
+        --r1_lambda $R1_LAMBDA \
         --original_loss \
         --overall_ratio 1.0 \
         --enable_code_switch \
         --code_switch_ratio $CSR \
         --dict_dir $DATA_DIR/dicts \
         --dict_languages de,es,fr,ja,ko,zh \
-        --stable_model_path $STABLE_MODEL_PATH \
+        --first_stage_model_path $FIRST_STAGE_MODEL_PATH \
         --enable_data_augmentation \
         --augment_ratio 1.0 \
         --augment_method cs \
-        --ms_lambda $R2_LAMBDA
+        --r2_lambda $R2_LAMBDA
 fi

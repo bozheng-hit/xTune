@@ -49,7 +49,7 @@ fi
 
 if [ $STAGE == 1 ]; then
   OUTPUT_DIR="${OUT_DIR}/${TASK}/${MODEL}-LR${LR}-epoch${EPOCH}-MaxLen${MAXL}-CS-csr${CSR}-R1_LAMBDA${R1_LAMBDA}/"
-  python ./src/run_qa_stable.py --model_type xlmr \
+  python ./src/run_qa.py --model_type xlmr \
         --task_name $TASK \
         --model_name_or_path $MODEL_PATH \
         --do_train \
@@ -73,8 +73,8 @@ if [ $STAGE == 1 ]; then
         --seed 1 \
         --fp16 --fp16_opt_level O2 \
         --warmup_steps -1 \
-        --enable_kl_loss \
-        --kl_lambda $R1_LAMBDA \
+        --enable_r1_loss \
+        --r1_lambda $R1_LAMBDA \
         --original_loss \
         --overall_ratio 1.0 \
         --keep_boundary_unchanged \
@@ -84,9 +84,9 @@ if [ $STAGE == 1 ]; then
         --dict_languages ar,de,el,es,hi,ru,th,tr,vi,zh \
         --noised_max_seq_length $MAXL
 elif [ $STAGE == 2 ]; then
-  STABLE_MODEL_PATH="${OUT_DIR}/${TASK}/${MODEL}-LR${LR}-epoch${EPOCH}-MaxLen${MAXL}-CS-csr${CSR}-R1_LAMBDA${R1_LAMBDA}/"
+  FIRST_STAGE_MODEL_PATH="${OUT_DIR}/${TASK}/${MODEL}-LR${LR}-epoch${EPOCH}-MaxLen${MAXL}-CS-csr${CSR}-R1_LAMBDA${R1_LAMBDA}/"
   OUTPUT_DIR="${OUT_DIR}/${TASK}/${MODEL}-LR${LR}-epoch${EPOCH}-MaxLen${MAXL}-SS-bsr${BSR}-sa${SA}-snbs${SNBS}-R1_Lambda${R1_LAMBDA}-Aug1.0-MT-R2_Lambda${R2_LAMBDA}/"
-  python ./src/run_qa_stable.py --model_type xlmr \
+  python ./src/run_qa.py --model_type xlmr \
         --task_name $TASK \
         --model_name_or_path $MODEL_PATH \
         --do_train \
@@ -110,8 +110,8 @@ elif [ $STAGE == 2 ]; then
         --seed 1 \
         --fp16 --fp16_opt_level O2 \
         --warmup_steps -1 \
-        --enable_kl_loss \
-        --kl_lambda $R1_LAMBDA \
+        --enable_r1_loss \
+        --r1_lambda $R1_LAMBDA \
         --original_loss \
         --overall_ratio 1.0 \
         --keep_boundary_unchanged \
@@ -125,8 +125,8 @@ elif [ $STAGE == 2 ]; then
         --augment_method mt \
         --translation_path $TRANSLATION_PATH \
         --max_steps 24000 \
-        --ms_lambda $R2_LAMBDA \
-        --stable_model_path $STABLE_MODEL_PATH
+        --r2_lambda $R2_LAMBDA \
+        --first_stage_model_path $FIRST_STAGE_MODEL_PATH
 fi
 
 

@@ -43,14 +43,14 @@ else
   LR=2e-5
 fi
 
-TRANSLATION_PATH=$DATA_DIR/$TASK/translate_train.udpos.txt
+TRANSLATION_PATH=$DATA_DIR/xtreme_translations/translate_train.udpos.txt
 
 DATA_DIR=$DATA_DIR/$TASK/${TASK}_processed_maxlen${MAX_LENGTH}/
 
 
 if [ $STAGE == 1 ]; then
   OUTPUT_DIR="${OUT_DIR}/${TASK}/${MODEL}-LR${LR}-epoch${EPOCH}-MaxLen${MAXL}-SS-bsr${BSR}-sa${SA}-snbs${SNBS}-R1_LAMBDA${R1_LAMBDA}/"
-  python src/run_tag_stable.py --model_type xlmr \
+  python src/run_tag.py --model_type xlmr \
         --model_name_or_path $MODEL_PATH \
         --do_train \
         --do_eval \
@@ -81,17 +81,17 @@ if [ $STAGE == 1 ]; then
         --hidden_dropout_prob 0.1 \
         --original_loss \
         --use_pooling_strategy \
-        --enable_kl_loss \
-        --kl_lambda $R1_LAMBDA \
+        --enable_r1_loss \
+        --r1_lambda $R1_LAMBDA \
         --use_token_label_probs \
         --enable_bpe_sampling \
         --bpe_sampling_ratio $BSR \
         --sampling_alpha $SA \
         --sampling_nbest_size $SNBS
 elif [ $STAGE == 2 ]; then
-  STABLE_MODEL_PATH="${OUT_DIR}/${TASK}/${MODEL}-LR${LR}-epoch${EPOCH}-MaxLen${MAXL}-SS-bsr${BSR}-sa${SA}-snbs${SNBS}-R1_LAMBDA${R1_LAMBDA}/checkpoint-best"
+  FIRST_STAGE_MODEL_PATH="${OUT_DIR}/${TASK}/${MODEL}-LR${LR}-epoch${EPOCH}-MaxLen${MAXL}-SS-bsr${BSR}-sa${SA}-snbs${SNBS}-R1_LAMBDA${R1_LAMBDA}/checkpoint-best"
   OUTPUT_DIR="${OUT_DIR}/${TASK}/${MODEL}-LR${LR}-epoch${EPOCH}-MaxLen${MAXL}-SS-bsr${BSR}-sa${SA}-snbs${SNBS}-R1_Lambda${R1_LAMBDA}-Aug1.0-MT-R2_Lambda${R2_LAMBDA}/"
-  python src/run_tag_stable.py --model_type xlmr \
+  python src/run_tag.py --model_type xlmr \
         --model_name_or_path $MODEL_PATH \
         --do_train \
         --do_eval \
@@ -122,8 +122,8 @@ elif [ $STAGE == 2 ]; then
         --hidden_dropout_prob 0.1 \
         --original_loss \
         --use_pooling_strategy \
-        --enable_kl_loss \
-        --kl_lambda $R1_LAMBDA \
+        --enable_r1_loss \
+        --r1_lambda $R1_LAMBDA \
         --use_token_label_probs \
         --enable_bpe_sampling \
         --bpe_sampling_ratio $BSR \
@@ -133,6 +133,6 @@ elif [ $STAGE == 2 ]; then
         --augment_ratio 1.0 \
         --augment_method mt \
         --translation_path $TRANSLATION_PATH \
-        --ms_lambda $R2_LAMBDA \
-        --stable_model_path $STABLE_MODEL_PATH
+        --r2_lambda $R2_LAMBDA \
+        --first_stage_model_path $FIRST_STAGE_MODEL_PATH
 fi

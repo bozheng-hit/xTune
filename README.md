@@ -20,7 +20,7 @@ Replace `csv.writer(fout, delimiter='\t')` with `csv.writer(fout, delimiter='\t'
 
 ### Translations
 
-XTREME provides translations for SQuAD v1.1 (only train and dev), MLQA, PAWS-X, TyDiQA-GoldP, XNLI, and XQuAD, which can be downloaded from [here][3]. The `xtreme_translations` folder should be moved to the root of this project. 
+XTREME provides translations for SQuAD v1.1 (only train and dev), MLQA, PAWS-X, TyDiQA-GoldP, XNLI, and XQuAD, which can be downloaded from [here][3]. The `xtreme_translations` folder should be moved to the download directory. 
 
 The target language translations for panx and udpos are obtained with Google Translate, since they are not provided. Our processed version can be downloaded from [here][4]. It should be merged with the above `xtreme_translations` folder.
 
@@ -30,7 +30,7 @@ We obtain the bi-lingual dictionaries from the [MUSE][6] repo. For convenience, 
 
 ### Models
 
-XLM-Roberta is supported. We utilize the [huggingface][5] format, which can be downloaded with `bash download_model.sh`.
+XLM-Roberta is supported. We utilize the [huggingface][5] format, which can be downloaded with `bash scripts/download_model.sh`.
 
 ## Fine-tuning Usage
 

@@ -2,7 +2,14 @@
 <project version="4">
   <component name="PublishConfigData" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
-      <paths name="FAREAST.v-zhebo@GCRAZGDL487.redmond.corp.microsoft.com:22">
+      <paths name="FAREAST.v-zhebo@GCRAZGDL750.redmond.corp.microsoft.com:22">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="FAREAST.v-zhebo@GCRAZGDL750.redmond.corp.microsoft.com:22 key">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
@@ -12,7 +19,7 @@
       <paths name="dgx">
         <serverdata>
           <mappings>
-            <mapping deploy="workspace/stabletune" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="workspace/xtune" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

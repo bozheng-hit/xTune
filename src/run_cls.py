@@ -75,8 +75,8 @@ MODEL_CLASSES = {
 class NoisedDataGenerator(object):
     def __init__(self,
                  task_name="xnli",
-                 enable_kl_loss=False,
-                 kl_lambda=5.0,
+                 enable_r1_loss=False,
+                 r1_lambda=5.0,
                  original_loss=True,
                  noised_loss=False,
                  max_length=512,
@@ -110,7 +110,7 @@ class NoisedDataGenerator(object):
                  enable_data_augmentation=False,
                  augment_method=None,
                  augment_ratio=0.0,
-                 ms_lambda=1.0,
+                 r2_lambda=1.0,
                  use_hard_labels=False):
         if enable_code_switch:
             assert dict_dir is not None
@@ -122,8 +122,8 @@ class NoisedDataGenerator(object):
         self.task_name = task_name
         self.n_tokens = 0
         self.n_cs_tokens = 0
-        self.enable_kl_loss = enable_kl_loss
-        self.kl_lambda = kl_lambda
+        self.enable_r1_loss = enable_r1_loss
+        self.r1_lambda = r1_lambda
         self.original_loss = original_loss
         self.noised_loss = noised_loss
         self.max_length = max_length
@@ -198,7 +198,7 @@ class NoisedDataGenerator(object):
         self.enable_data_augmentation = enable_data_augmentation
         self.augment_method = augment_method
         self.augment_ratio = augment_ratio
-        self.ms_lambda = ms_lambda
+        self.r2_lambda = r2_lambda
         self.use_hard_labels = use_hard_labels
 
     def augment_examples(self, examples):
@@ -337,7 +337,7 @@ class NoisedDataGenerator(object):
         all_noised_attention_mask = []
         all_noised_token_type_ids = []
 
-        all_example_kl_mask = []
+        all_r1_mask = []
         all_is_augmented = []
 
         for (ex_index, example) in enumerate(examples):
@@ -350,23 +350,23 @@ class NoisedDataGenerator(object):
                 if self.augment_method == "mt":
                     example.text_a, example.text_b = self.get_translation_pair(example.text_a, example.text_b)
                     original_inputs = self.encode_plus(example.text_a, example.text_b, switch_text=False)
-                    all_example_kl_mask.append(1)
+                    all_r1_mask.append(1)
                 elif self.augment_method == "gn":
                     original_inputs = self.encode_plus(example.text_a, example.text_b, switch_text=False)
-                    all_example_kl_mask.append(1)
+                    all_r1_mask.append(1)
                 elif self.augment_method == "cs":
                     original_inputs = self.encode_plus(example.text_a, example.text_b, switch_text=True,
                                                        enable_code_switch=True)
-                    all_example_kl_mask.append(1)
+                    all_r1_mask.append(1)
                 elif self.augment_method == "ss":
                     original_inputs = self.encode_plus(example.text_a, example.text_b, switch_text=True,
                                                        enable_bpe_sampling=True)
-                    all_example_kl_mask.append(1)
+                    all_r1_mask.append(1)
                 else:
                     assert False
             else:
                 original_inputs = self.encode_plus(example.text_a, example.text_b, switch_text=False)
-                all_example_kl_mask.append(1)
+                all_r1_mask.append(1)
 
             all_is_augmented.append(is_augmented[ex_index])
 
@@ -417,7 +417,7 @@ class NoisedDataGenerator(object):
             all_original_token_type_ids.append(original_token_type_ids)
             all_labels.append(label)
 
-            if not self.enable_kl_loss:
+            if not self.enable_r1_loss:
                 continue
 
             if self.enable_translate_data:
@@ -479,18 +479,18 @@ class NoisedDataGenerator(object):
         all_labels = torch.tensor([label for label in all_labels], dtype=torch.long)
         is_augmented = torch.tensor([is_augmented for is_augmented in all_is_augmented], dtype=torch.long)
 
-        if self.enable_kl_loss:
+        if self.enable_r1_loss:
             all_noised_input_ids = torch.tensor([input_ids for input_ids in all_noised_input_ids], dtype=torch.long)
             all_noised_attention_mask = torch.tensor([attention_mask for attention_mask in all_noised_attention_mask],
                                                      dtype=torch.long)
             all_noised_token_type_ids = torch.tensor([token_type_ids for token_type_ids in all_noised_token_type_ids],
                                                      dtype=torch.long)
-            all_example_kl_mask = torch.tensor([example_kl_mask for example_kl_mask in all_example_kl_mask],
+            all_r1_mask = torch.tensor([r1_mask for r1_mask in all_r1_mask],
                                                dtype=torch.long)
 
             dataset = TensorDataset(all_original_input_ids, all_original_attention_mask, all_original_token_type_ids,
                                     all_labels, is_augmented, all_noised_input_ids, all_noised_attention_mask,
-                                    all_noised_token_type_ids, all_example_kl_mask)
+                                    all_noised_token_type_ids, all_r1_mask)
         else:
             dataset = TensorDataset(all_original_input_ids, all_original_attention_mask, all_original_token_type_ids,
                                     all_labels, is_augmented)
@@ -571,7 +571,7 @@ def ConcatDataset(dataset_list):
     return dataset
 
 
-def train(args, train_examples, train_dataset, model, stable_model, tokenizer, noised_data_generator=None):
+def train(args, train_examples, train_dataset, model, first_stage_model, tokenizer, noised_data_generator=None):
     """ Train the model """
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter(os.path.join(args.output_dir, "tb-log"))
@@ -661,8 +661,8 @@ def train(args, train_examples, train_dataset, model, stable_model, tokenizer, n
     tr_loss, logging_loss, best_avg = 0.0, 0.0, 0.0
     tr_original_loss, logging_original_loss = 0.0, 0.0
     tr_noised_loss, logging_noised_loss = 0.0, 0.0
-    tr_kl_loss, logging_kl_loss = 0.0, 0.0
-    tr_ms_loss, logging_ms_loss = 0.0, 0.0
+    tr_r1_loss, logging_r1_loss = 0.0, 0.0
+    tr_r2_loss, logging_r2_loss = 0.0, 0.0
 
     model.zero_grad()
     train_iterator = trange(
@@ -681,19 +681,19 @@ def train(args, train_examples, train_dataset, model, stable_model, tokenizer, n
             log_writer.write("{0}\t{1}\n".format(global_step, json.dumps(results)))
             log_writer.flush()
         logger.info(
-            "global_step: {}, lr: {:.6f}, loss: {:.6f}, original_loss: {:.6f}, noised_loss: {:.6f}, kl_loss: {:.6f}, ms_loss: {:.6f}".format(
+            "global_step: {}, lr: {:.6f}, loss: {:.6f}, original_loss: {:.6f}, noised_loss: {:.6f}, r1_loss: {:.6f}, r2_loss: {:.6f}".format(
                 global_step, scheduler.get_lr()[0], (tr_loss - logging_loss) / args.logging_steps,
                                                     (tr_original_loss - logging_original_loss) / args.logging_steps,
                                                     (tr_noised_loss - logging_noised_loss) / args.logging_steps,
-                                                    (tr_kl_loss - logging_kl_loss) / args.logging_steps,
-                                                    (tr_ms_loss - logging_ms_loss) / args.logging_steps))
+                                                    (tr_r1_loss - logging_r1_loss) / args.logging_steps,
+                                                    (tr_r2_loss - logging_r2_loss) / args.logging_steps))
         tb_writer.add_scalar("lr", scheduler.get_lr()[0], global_step)
         tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
         tb_writer.add_scalar("original_loss", (tr_original_loss - logging_original_loss) / args.logging_steps,
                              global_step)
         tb_writer.add_scalar("noised_loss", (tr_noised_loss - logging_noised_loss) / args.logging_steps, global_step)
-        tb_writer.add_scalar("kl_loss", (tr_kl_loss - logging_kl_loss) / args.logging_steps, global_step)
-        tb_writer.add_scalar("ms_loss", (tr_ms_loss - logging_ms_loss) / args.logging_steps, global_step)
+        tb_writer.add_scalar("r1_loss", (tr_r1_loss - logging_r1_loss) / args.logging_steps, global_step)
+        tb_writer.add_scalar("r2_loss", (tr_r2_loss - logging_r2_loss) / args.logging_steps, global_step)
         return results
 
     def save_checkpoint_best(result):
@@ -723,7 +723,7 @@ def train(args, train_examples, train_dataset, model, stable_model, tokenizer, n
 
     for _ in train_iterator:
         if noised_data_generator is not None:
-            assert noised_data_generator.enable_kl_loss or noised_data_generator.noised_loss or noised_data_generator.enable_data_augmentation
+            assert noised_data_generator.enable_r1_loss or noised_data_generator.noised_loss or noised_data_generator.enable_data_augmentation
             noised_train_dataset = noised_data_generator.get_noised_dataset(train_examples)
 
             train_sampler = RandomSampler(noised_train_dataset) if args.local_rank == -1 else DistributedSampler(
@@ -741,8 +741,8 @@ def train(args, train_examples, train_dataset, model, stable_model, tokenizer, n
                 steps_trained_in_current_epoch -= 1
                 continue
             model.train()
-            if stable_model is not None:
-                stable_model.eval()
+            if first_stage_model is not None:
+                first_stage_model.eval()
             batch = tuple(t.to(args.device) for t in batch)
             if len(batch) == 4:
                 inputs = {"input_ids": batch[0], "attention_mask": batch[1], "labels": batch[3]}
@@ -763,7 +763,7 @@ def train(args, train_examples, train_dataset, model, stable_model, tokenizer, n
                           "is_augmented": batch[4],
                           "noised_input_ids": batch[5],
                           "noised_attention_mask": batch[6],
-                          "example_kl_mask": batch[8]}
+                          "r1_mask": batch[8]}
                 if args.model_type != "distilbert":
                     inputs["token_type_ids"] = (
                         batch[2] if args.model_type in ["bert"] else None
@@ -772,13 +772,13 @@ def train(args, train_examples, train_dataset, model, stable_model, tokenizer, n
                         batch[7] if args.model_type in ["bert"] else None
                     )  # XLM and DistilBERT don't use segment_ids
 
-            if stable_model is not None:
-                stable_model_inputs = {"input_ids": inputs["input_ids"],
+            if first_stage_model is not None:
+                first_stage_model_inputs = {"input_ids": inputs["input_ids"],
                                        "attention_mask": inputs["attention_mask"],
                                        "token_type_ids": inputs["token_type_ids"],
                                        "labels": inputs["labels"]}
                 with torch.no_grad():
-                    inputs["stable_model_logits"] = stable_model(**stable_model_inputs)[1]
+                    inputs["first_stage_model_logits"] = first_stage_model(**first_stage_model_inputs)[1]
 
             outputs = model(**inputs)
             loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
@@ -797,21 +797,21 @@ def train(args, train_examples, train_dataset, model, stable_model, tokenizer, n
             tr_loss += loss.item()
 
             if noised_data_generator is not None:
-                original_loss, noised_loss, kl_loss, ms_loss = outputs[1:5]
+                original_loss, noised_loss, r1_loss, r2_loss = outputs[1:5]
                 if args.n_gpu > 1:
                     original_loss = original_loss.mean()
                     noised_loss = noised_loss.mean()
-                    kl_loss = kl_loss.mean()
-                    ms_loss = ms_loss.mean()
+                    r1_loss = r1_loss.mean()
+                    r2_loss = r2_loss.mean()
                 if args.gradient_accumulation_steps > 1:
                     original_loss = original_loss / args.gradient_accumulation_steps
                     noised_loss = noised_loss / args.gradient_accumulation_steps
-                    kl_loss = kl_loss / args.gradient_accumulation_steps
-                    ms_loss = ms_loss / args.gradient_accumulation_steps
+                    r1_loss = r1_loss / args.gradient_accumulation_steps
+                    r2_loss = r2_loss / args.gradient_accumulation_steps
                 tr_original_loss += original_loss.item()
                 tr_noised_loss += noised_loss.item()
-                tr_kl_loss += kl_loss.item()
-                tr_ms_loss += ms_loss.item()
+                tr_r1_loss += r1_loss.item()
+                tr_r2_loss += r2_loss.item()
 
             if (step + 1) % args.gradient_accumulation_steps == 0:
                 if args.fp16:
@@ -830,8 +830,8 @@ def train(args, train_examples, train_dataset, model, stable_model, tokenizer, n
                     logging_loss = tr_loss
                     logging_original_loss = tr_original_loss
                     logging_noised_loss = tr_noised_loss
-                    logging_kl_loss = tr_kl_loss
-                    logging_ms_loss = tr_ms_loss
+                    logging_r1_loss = tr_r1_loss
+                    logging_r2_loss = tr_r2_loss
                     best_avg = save_checkpoint_best(cur_result)
 
             if args.max_steps > 0 and global_step > args.max_steps:
@@ -843,8 +843,8 @@ def train(args, train_examples, train_dataset, model, stable_model, tokenizer, n
             logging_loss = tr_loss
             logging_original_loss = tr_original_loss
             logging_noised_loss = tr_noised_loss
-            logging_kl_loss = tr_kl_loss
-            logging_ms_loss = tr_ms_loss
+            logging_r1_loss = tr_r1_loss
+            logging_r2_loss = tr_r2_loss
             best_avg = save_checkpoint_best(cur_result)
 
         if args.max_steps > 0 and global_step > args.max_steps:
@@ -1175,8 +1175,8 @@ def main():
 
     # stable fine-tuning paramters
     parser.add_argument("--overall_ratio", default=1.0, type=float, help="overall ratio")
-    parser.add_argument("--enable_kl_loss", action="store_true", help="Whether to enable kl loss.")
-    parser.add_argument("--kl_lambda", default=5.0, type=float, help="lambda of KL loss")
+    parser.add_argument("--enable_r1_loss", action="store_true", help="Whether to enable r1 loss.")
+    parser.add_argument("--r1_lambda", default=5.0, type=float, help="lambda of r1 loss")
     parser.add_argument("--original_loss", action="store_true",
                         help="Whether to use cross entropy loss on the former example.")
     parser.add_argument("--noised_loss", action="store_true",
@@ -1209,10 +1209,10 @@ def main():
     parser.add_argument("--enable_data_augmentation", action="store_true", help="Whether to enable data augmentation.")
     parser.add_argument("--augment_method", default=None, type=str, help="augment method")
     parser.add_argument("--augment_ratio", default=1.0, type=float, help="augmentation ratio.")
-    parser.add_argument("--stable_model_path", default=None, type=str, required=False,
+    parser.add_argument("--first_stage_model_path", default=None, type=str, required=False,
                         help="stable model path")
-    parser.add_argument("--ms_lambda", default=1.0, type=float, required=False,
-                        help="ms_lambda")
+    parser.add_argument("--r2_lambda", default=1.0, type=float, required=False,
+                        help="r2_lambda")
     parser.add_argument("--use_hard_labels", action="store_true", help="Whether to use hard labels.")
 
     # Other parameters
@@ -1402,11 +1402,11 @@ def main():
         cache_dir=args.cache_dir if args.cache_dir else None,
     )
 
-    if args.enable_kl_loss or args.noised_loss or args.enable_data_augmentation:
+    if args.enable_r1_loss or args.noised_loss or args.enable_data_augmentation:
         noised_data_generator = NoisedDataGenerator(
             task_name=args.task_name,
-            enable_kl_loss=args.enable_kl_loss,
-            kl_lambda=args.kl_lambda,
+            enable_r1_loss=args.enable_r1_loss,
+            r1_lambda=args.r1_lambda,
             original_loss=args.original_loss,
             noised_loss=args.noised_loss,
             max_length=args.max_seq_length,
@@ -1440,17 +1440,17 @@ def main():
             enable_data_augmentation=args.enable_data_augmentation,
             augment_method=args.augment_method,
             augment_ratio=args.augment_ratio,
-            ms_lambda=args.ms_lambda,
+            r2_lambda=args.r2_lambda,
             use_hard_labels=args.use_hard_labels,
         )
     else:
         noised_data_generator = None
 
-    if args.stable_model_path is not None:
-        stable_model = model_class.from_pretrained(args.stable_model_path,
+    if args.first_stage_model_path is not None:
+        first_stage_model = model_class.from_pretrained(args.first_stage_model_path,
                                                    config=config)
     else:
-        stable_model = None
+        first_stage_model = None
 
     state_dict = None
     if args.reload != "":
@@ -1469,8 +1469,8 @@ def main():
 
     if args.local_rank == 0:
         torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
-    if stable_model is not None:
-        stable_model.to(args.device)
+    if first_stage_model is not None:
+        first_stage_model.to(args.device)
     model.to(args.device)
 
     logger.info("Training/evaluation parameters %s", args)
@@ -1490,7 +1490,7 @@ def main():
             train_examples += lg_examples
         train_dataset = ConcatDataset(dataset_list)
 
-        global_step, tr_loss = train(args, train_examples, train_dataset, model, stable_model, tokenizer,
+        global_step, tr_loss = train(args, train_examples, train_dataset, model, first_stage_model, tokenizer,
                                      noised_data_generator)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
 

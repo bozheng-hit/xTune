@@ -3,7 +3,7 @@
   <component name="WebServers">
     <option name="servers">
       <webServer id="2159f78b-3349-4bc6-8b1a-a2e8e3c7c063" name="dgx">
-        <fileTransfer rootFolder="/home/v-zhebo" accessType="SFTP" host="gcrsandbox125.redmond.corp.microsoft.com" port="22" sshConfigId="988a9131-1394-4843-9ed7-96b2f77f3df5" sshConfig="FAREAST.v-zhebo@gcrsandbox125.redmond.corp.microsoft.com:22 key" keyPair="true">
+        <fileTransfer rootFolder="/home/v-zhebo" accessType="SFTP" host="gcrsandbox101.redmond.corp.microsoft.com" port="22" sshConfigId="988a9131-1394-4843-9ed7-96b2f77f3df5" sshConfig="FAREAST.v-zhebo@gcrsandbox101.redmond.corp.microsoft.com:22 key" keyPair="true">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>

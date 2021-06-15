@@ -217,14 +217,14 @@ class XLMRobertaForSequenceClassificationStable(BertPreTrainedModel):
         self.classifier = RobertaClassificationHead(config)
 
         self.noise_sampler = None
-        self.enable_kl_loss = False
+        self.enable_r1_loss = False
         self.original_loss = True
         self.noised_loss = False
         self.use_hard_labels = False
         if noised_data_generator is not None:
-            self.enable_kl_loss = noised_data_generator.enable_kl_loss
-            self.kl_lambda = noised_data_generator.kl_lambda
-            self.ms_lambda = noised_data_generator.ms_lambda
+            self.enable_r1_loss = noised_data_generator.enable_r1_loss
+            self.r1_lambda = noised_data_generator.r1_lambda
+            self.r2_lambda = noised_data_generator.r2_lambda
             self.original_loss = noised_data_generator.original_loss
             self.noised_loss = noised_data_generator.noised_loss
             self.use_hard_labels = noised_data_generator.use_hard_labels
@@ -259,15 +259,15 @@ class XLMRobertaForSequenceClassificationStable(BertPreTrainedModel):
             noised_token_type_ids=None,
             return_sequence_output=False,
             is_augmented=None,
-            example_kl_mask=None,
-            stable_model_logits=None,
+            r1_mask=None,
+            first_stage_model_logits=None,
     ):
         word_embeds = self.roberta.embeddings.word_embeddings(input_ids)
 
         if is_augmented is not None:
             # ground truth data indices
             # optional when data augmentation is considered noisy
-            # if self.augment_method != "mt" and stable_model_logits is not None:
+            # if self.augment_method != "mt" and first_stage_model_logits is not None:
             #     gt_indices = (~is_augmented.bool()).view(-1).nonzero(as_tuple=False).view(-1).tolist()
             # else:
             #     gt_indices = list(range(0, input_ids.size(0)))
@@ -319,20 +319,20 @@ class XLMRobertaForSequenceClassificationStable(BertPreTrainedModel):
             outputs = (loss,) + outputs
 
             if self.training:
-                if stable_model_logits is not None and is_augmented is not None and len(augmented_indices) > 0:
+                if first_stage_model_logits is not None and is_augmented is not None and len(augmented_indices) > 0:
                     # optional to use hard labels and augmented indices when data augmentation is considered noisy
                     if self.use_hard_labels:
-                        hard_labels = stable_model_logits.view(-1, self.num_labels).max(dim=-1)[1]
-                        ms_loss = loss_fct(logits.view(-1, self.num_labels)[augmented_indices],
+                        hard_labels = first_stage_model_logits.view(-1, self.num_labels).max(dim=-1)[1]
+                        r2_loss = loss_fct(logits.view(-1, self.num_labels)[augmented_indices],
                                            hard_labels.view(-1)[augmented_indices])
                     else:
-                        ms_loss = KL(logits.view(-1, self.num_labels)[augmented_indices],
-                                     stable_model_logits.view(-1, self.num_labels).detach()[augmented_indices])
-                    ms_loss = ms_loss * self.ms_lambda
+                        r2_loss = KL(logits.view(-1, self.num_labels)[augmented_indices],
+                                     first_stage_model_logits.view(-1, self.num_labels).detach()[augmented_indices])
+                    r2_loss = r2_loss * self.r2_lambda
                 else:
-                    ms_loss = loss.data.new([0.0])
+                    r2_loss = loss.data.new([0.0])
 
-                if self.enable_kl_loss or self.noised_loss:
+                if self.enable_r1_loss or self.noised_loss:
                     if noised_input_ids is not None:
                         noised_word_embeds = self.roberta.embeddings.word_embeddings(noised_input_ids)
                         assert noised_attention_mask is not None
@@ -371,21 +371,21 @@ class XLMRobertaForSequenceClassificationStable(BertPreTrainedModel):
                 else:
                     noised_loss = loss.data.new([0.0])
 
-                if self.enable_kl_loss and example_kl_mask.sum() > 0:
-                    logits = logits.masked_select(example_kl_mask.view(-1, 1).expand(-1, self.num_labels).bool())
+                if self.enable_r1_loss and r1_mask.sum() > 0:
+                    logits = logits.masked_select(r1_mask.view(-1, 1).expand(-1, self.num_labels).bool())
                     noised_logits = noised_logits.masked_select(
-                        example_kl_mask.view(-1, 1).expand(-1, self.num_labels).bool())
+                        r1_mask.view(-1, 1).expand(-1, self.num_labels).bool())
 
-                    kl_loss_f = KL(noised_logits.view(-1, self.num_labels),
+                    r1_loss_f = KL(noised_logits.view(-1, self.num_labels),
                                    logits.view(-1, self.num_labels).detach())
-                    kl_loss_b = KL(logits.view(-1, self.num_labels),
+                    r1_loss_b = KL(logits.view(-1, self.num_labels),
                                    noised_logits.view(-1, self.num_labels).detach())
-                    kl_loss = (kl_loss_b + kl_loss_f) * self.kl_lambda
+                    r1_loss = (r1_loss_b + r1_loss_f) * self.r1_lambda
                 else:
-                    kl_loss = loss.data.new([0.0])
+                    r1_loss = loss.data.new([0.0])
 
-                loss = original_loss + noised_loss + kl_loss + ms_loss
-                outputs = (loss, original_loss, noised_loss, kl_loss, ms_loss) + outputs[1:]
+                loss = original_loss + noised_loss + r1_loss + r2_loss
+                outputs = (loss, original_loss, noised_loss, r1_loss, r2_loss) + outputs[1:]
 
         return outputs  # (loss), logits, (hidden_states), (attentions)
 
@@ -417,14 +417,14 @@ class XLMRobertaForSequenceClassificationConsistency(BertPreTrainedModel):
         self.classifier = RobertaClassificationHead(config)
 
         self.noise_sampler = None
-        self.enable_kl_loss = False
+        self.enable_r1_loss = False
         self.original_loss = True
         self.noised_loss = False
         self.use_hard_labels = False
         if noised_data_generator is not None:
-            self.enable_kl_loss = noised_data_generator.enable_kl_loss
-            self.kl_lambda = noised_data_generator.kl_lambda
-            self.ms_lambda = noised_data_generator.ms_lambda
+            self.enable_r1_loss = noised_data_generator.enable_r1_loss
+            self.r1_lambda = noised_data_generator.r1_lambda
+            self.r2_lambda = noised_data_generator.r2_lambda
             self.original_loss = noised_data_generator.original_loss
             self.noised_loss = noised_data_generator.noised_loss
             self.use_hard_labels = noised_data_generator.use_hard_labels
@@ -551,18 +551,18 @@ class XLMRobertaForQuestionAnsweringStable(BertPreTrainedModel):
         self.init_weights()
 
         self.noise_sampler = None
-        self.enable_kl_loss = False
+        self.enable_r1_loss = False
         self.original_loss = True
         self.noised_loss = False
         self.use_hard_labels = False
-        self.ms_lambda = 1.0
+        self.r2_lambda = 1.0
         if noised_data_generator is not None:
-            self.enable_kl_loss = noised_data_generator.enable_kl_loss
-            self.kl_on_boundary_only = noised_data_generator.kl_on_boundary_only
-            self.kl_lambda = noised_data_generator.kl_lambda
+            self.enable_r1_loss = noised_data_generator.enable_r1_loss
+            self.r1_on_boundary_only = noised_data_generator.r1_on_boundary_only
+            self.r1_lambda = noised_data_generator.r1_lambda
             self.original_loss = noised_data_generator.original_loss
             self.noised_loss = noised_data_generator.noised_loss
-            self.ms_lambda = noised_data_generator.ms_lambda
+            self.r2_lambda = noised_data_generator.r2_lambda
             self.use_hard_labels = noised_data_generator.use_hard_labels
             self.noise_detach_embeds = noised_data_generator.noise_detach_embeds
             self.augment_method = noised_data_generator.augment_method
@@ -594,12 +594,12 @@ class XLMRobertaForQuestionAnsweringStable(BertPreTrainedModel):
             noised_input_ids=None,
             noised_attention_mask=None,
             noised_token_type_ids=None,
-            noised_kl_mask=None,
-            original_kl_mask=None,
+            noised_r1_mask=None,
+            original_r1_mask=None,
             noised_start_positions=None,
             noised_end_positions=None,
-            stable_model_start_logits=None,
-            stable_model_end_logits=None,
+            first_stage_model_start_logits=None,
+            first_stage_model_end_logits=None,
             is_augmented=None,
     ):
         word_embeds = self.roberta.embeddings.word_embeddings(input_ids)
@@ -607,7 +607,7 @@ class XLMRobertaForQuestionAnsweringStable(BertPreTrainedModel):
         if is_augmented is not None:
             # ground truth data indices
             # optional when data augmentation is considered noisy
-            # if stable_model_start_logits is not None and (self.augment_method != "mt" or self.disable_translate_labels):
+            # if first_stage_model_start_logits is not None and (self.augment_method != "mt" or self.disable_translate_labels):
             #     gt_indices = (~is_augmented.bool()).view(-1).nonzero(as_tuple=False).view(-1).tolist()
             # else:
             #     gt_indices = list(range(0, input_ids.size(0)))
@@ -670,37 +670,37 @@ class XLMRobertaForQuestionAnsweringStable(BertPreTrainedModel):
             outputs = (total_loss,) + outputs
 
             if self.training:
-                if stable_model_start_logits is not None and stable_model_end_logits is not None and is_augmented is not None and len(
+                if first_stage_model_start_logits is not None and first_stage_model_end_logits is not None and is_augmented is not None and len(
                         augmented_indices) > 0:
                     # optional to use hard labels and augmented indices when data augmentation is considered noisy
                     if self.use_hard_labels:
-                        hard_start_positions = stable_model_start_logits.max(dim=-1)[1]
-                        hard_end_positions = stable_model_start_logits.max(dim=-1)[1]
-                        ms_start_loss = loss_fct(start_logits[augmented_indices],
+                        hard_start_positions = first_stage_model_start_logits.max(dim=-1)[1]
+                        hard_end_positions = first_stage_model_start_logits.max(dim=-1)[1]
+                        r2_start_loss = loss_fct(start_logits[augmented_indices],
                                                  hard_start_positions[augmented_indices])
-                        ms_end_loss = loss_fct(end_logits[augmented_indices], hard_end_positions[augmented_indices])
-                        ms_loss = (ms_start_loss + ms_end_loss) / 2 * self.ms_lambda
+                        r2_end_loss = loss_fct(end_logits[augmented_indices], hard_end_positions[augmented_indices])
+                        r2_loss = (r2_start_loss + r2_end_loss) / 2 * self.r2_lambda
                     else:
                         original_start_probs = get_probs(start_logits[augmented_indices],
                                                          attention_mask.bool()[augmented_indices], attn_mask=True)
                         original_end_probs = get_probs(end_logits[augmented_indices],
                                                        attention_mask.bool()[augmented_indices], attn_mask=True)
-                        stable_start_probs = get_probs(stable_model_start_logits[augmented_indices],
+                        stable_start_probs = get_probs(first_stage_model_start_logits[augmented_indices],
                                                        attention_mask.bool()[augmented_indices], attn_mask=True)
-                        stable_end_probs = get_probs(stable_model_end_logits[augmented_indices],
+                        stable_end_probs = get_probs(first_stage_model_end_logits[augmented_indices],
                                                      attention_mask.bool()[augmented_indices], attn_mask=True)
 
-                        ms_start_loss = KL_probs(original_start_probs, stable_start_probs.detach()) / len(
+                        r2_start_loss = KL_probs(original_start_probs, stable_start_probs.detach()) / len(
                             augmented_indices)
-                        ms_end_loss = KL_probs(original_end_probs, stable_end_probs.detach()) / len(augmented_indices)
+                        r2_end_loss = KL_probs(original_end_probs, stable_end_probs.detach()) / len(augmented_indices)
 
-                        ms_loss = (ms_start_loss + ms_end_loss) / 2 * self.ms_lambda
+                        r2_loss = (r2_start_loss + r2_end_loss) / 2 * self.r2_lambda
                 else:
-                    ms_loss = total_loss.data.new([0.0])
+                    r2_loss = total_loss.data.new([0.0])
 
-                if self.enable_kl_loss or self.noised_loss:
-                    original_kl_mask = original_kl_mask.eq(1)
-                    noised_kl_mask = noised_kl_mask.eq(1)
+                if self.enable_r1_loss or self.noised_loss:
+                    original_r1_mask = original_r1_mask.eq(1)
+                    noised_r1_mask = noised_r1_mask.eq(1)
                     if noised_input_ids is not None:
                         noised_word_embeds = self.roberta.embeddings.word_embeddings(noised_input_ids)
                         assert noised_attention_mask is not None
@@ -749,8 +749,8 @@ class XLMRobertaForQuestionAnsweringStable(BertPreTrainedModel):
                 else:
                     noised_loss = total_loss.data.new([0.0])
 
-                if self.enable_kl_loss:
-                    if self.kl_on_boundary_only:
+                if self.enable_r1_loss:
+                    if self.r1_on_boundary_only:
                         noised_start_probs = get_probs(noised_start_logits)
                         original_start_probs = get_probs(start_logits)
 
@@ -777,27 +777,27 @@ class XLMRobertaForQuestionAnsweringStable(BertPreTrainedModel):
                         original_start_probs = original_start_probs.view(-1)
                         original_end_probs = original_end_probs.view(-1)
                     else:
-                        noised_start_probs = get_probs(noised_start_logits, noised_kl_mask)
-                        original_start_probs = get_probs(start_logits, original_kl_mask)
+                        noised_start_probs = get_probs(noised_start_logits, noised_r1_mask)
+                        original_start_probs = get_probs(start_logits, original_r1_mask)
 
-                        noised_end_probs = get_probs(noised_end_logits, noised_kl_mask)
-                        original_end_probs = get_probs(end_logits, original_kl_mask)
+                        noised_end_probs = get_probs(noised_end_logits, noised_r1_mask)
+                        original_end_probs = get_probs(end_logits, original_r1_mask)
 
-                    start_kl_loss_f = KL_probs(noised_start_probs, original_start_probs.detach()) / input_ids.size(0)
-                    start_kl_loss_b = KL_probs(original_start_probs, noised_start_probs.detach()) / input_ids.size(0)
-                    end_kl_loss_f = KL_probs(noised_end_probs, original_end_probs.detach()) / input_ids.size(0)
-                    end_kl_loss_b = KL_probs(original_end_probs, noised_end_probs.detach()) / input_ids.size(0)
+                    start_r1_loss_f = KL_probs(noised_start_probs, original_start_probs.detach()) / input_ids.size(0)
+                    start_r1_loss_b = KL_probs(original_start_probs, noised_start_probs.detach()) / input_ids.size(0)
+                    end_r1_loss_f = KL_probs(noised_end_probs, original_end_probs.detach()) / input_ids.size(0)
+                    end_r1_loss_b = KL_probs(original_end_probs, noised_end_probs.detach()) / input_ids.size(0)
 
-                    start_kl_loss = (start_kl_loss_b + start_kl_loss_f) / 2.0
-                    end_kl_loss = (end_kl_loss_b + end_kl_loss_f) / 2.0
+                    start_r1_loss = (start_r1_loss_b + start_r1_loss_f) / 2.0
+                    end_r1_loss = (end_r1_loss_b + end_r1_loss_f) / 2.0
 
-                    kl_loss = (start_kl_loss + end_kl_loss) * self.kl_lambda
+                    r1_loss = (start_r1_loss + end_r1_loss) * self.r1_lambda
                 else:
-                    kl_loss = total_loss.data.new([0.0])
+                    r1_loss = total_loss.data.new([0.0])
 
-                loss = original_loss + noised_loss + kl_loss + ms_loss
+                loss = original_loss + noised_loss + r1_loss + r2_loss
 
-                outputs = (loss, original_loss, noised_loss, kl_loss, ms_loss) + outputs[1:]
+                outputs = (loss, original_loss, noised_loss, r1_loss, r2_loss) + outputs[1:]
 
         return outputs  # (loss), logits, (hidden_states), (attentions)
 
@@ -867,26 +867,26 @@ class XLMRobertaForTokenClassificationPoolingStable(BertPreTrainedModel):
 
         self.use_pooling_strategy = use_pooling_strategy
         self.noise_sampler = None
-        self.enable_kl_loss = False
+        self.enable_r1_loss = False
         self.original_loss = True
         self.noised_loss = False
         self.detach_embeds = False
         if noised_data_generator is not None:
-            self.enable_kl_loss = noised_data_generator.enable_kl_loss
-            self.kl_lambda = noised_data_generator.kl_lambda
+            self.enable_r1_loss = noised_data_generator.enable_r1_loss
+            self.r1_lambda = noised_data_generator.r1_lambda
             self.original_loss = noised_data_generator.original_loss
             self.noised_loss = noised_data_generator.noised_loss
             self.use_sentence_label_probs = noised_data_generator.use_sentence_label_probs
             self.use_token_label_probs = noised_data_generator.use_token_label_probs
             self.use_align_label_probs = noised_data_generator.use_align_label_probs
-            self.ms_lambda = noised_data_generator.ms_lambda
+            self.r2_lambda = noised_data_generator.r2_lambda
             self.use_average_representations = noised_data_generator.use_average_representations
             self.detach_embeds = noised_data_generator.detach_embeds
             self.disable_backward_kl = noised_data_generator.disable_backward_kl
             self.use_hard_labels = noised_data_generator.use_hard_labels
             self.augment_method = noised_data_generator.augment_method
 
-            if not (noised_data_generator.original_loss or noised_data_generator.enable_kl_loss):
+            if not (noised_data_generator.original_loss or noised_data_generator.enable_r1_loss):
                 # replace original dataset to noised dataset
                 assert self.noised_loss
                 self.noised_loss = False
@@ -920,12 +920,12 @@ class XLMRobertaForTokenClassificationPoolingStable(BertPreTrainedModel):
             noised_token_type_ids=None,
             noised_labels=None,
             noised_pooling_ids=None,
-            noised_kl_mask=None,
-            original_kl_mask=None,
+            noised_r1_mask=None,
+            original_r1_mask=None,
             src_pooling_ids=None,
             tgt_pooling_ids=None,
             is_augmented=None,
-            stable_model_logits=None,
+            first_stage_model_logits=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
@@ -969,7 +969,7 @@ class XLMRobertaForTokenClassificationPoolingStable(BertPreTrainedModel):
         if is_augmented is not None:
             # ground truth data indices
             # optional when data augmentation is considered noisy
-            # if self.augment_method != "mt" and stable_model_logits is not None:
+            # if self.augment_method != "mt" and first_stage_model_logits is not None:
             #     gt_indices = (~is_augmented.bool()).view(-1).nonzero(as_tuple=False).view(-1).tolist()
             # else:
             #     gt_indices = list(range(0, input_ids.size(0)))
@@ -1031,32 +1031,32 @@ class XLMRobertaForTokenClassificationPoolingStable(BertPreTrainedModel):
             outputs = (loss,) + outputs
 
             if self.training:
-                if stable_model_logits is not None and is_augmented is not None and len(augmented_indices) > 0:
+                if first_stage_model_logits is not None and is_augmented is not None and len(augmented_indices) > 0:
                     sum_token_count = torch.zeros_like(pooling_ids)
                     sum_token_count.scatter_add_(dim=1, index=pooling_ids, src=torch.ones_like(pooling_ids))
                     sum_token_count[:, 0] = 0
                     # optional to use hard labels and augmented indices when data augmenation is considered noisy
                     # hard labels for NER task
                     if self.use_hard_labels:
-                        hard_labels = stable_model_logits.max(dim=-1)[1]
+                        hard_labels = first_stage_model_logits.max(dim=-1)[1]
                         active_loss = sum_token_count[augmented_indices].gt(0).view(-1) == 1
                         active_logits = logits[augmented_indices].view(-1, self.num_labels)
                         active_labels = torch.where(active_loss, hard_labels[augmented_indices].view(-1),
                                                     torch.tensor(loss_fct.ignore_index).type_as(labels))
-                        ms_loss = loss_fct(active_logits, active_labels) * self.ms_lambda
+                        r2_loss = loss_fct(active_logits, active_labels) * self.r2_lambda
                     else:
                         sum_mask = sum_token_count[augmented_indices].view(-1).gt(0).unsqueeze(-1).expand(-1,
                                                                                                           self.num_labels)
-                        token_teacher_logits = stable_model_logits[augmented_indices].view(-1,
-                                                                                           self.num_labels).masked_select(
+                        token_teacher_logits = first_stage_model_logits[augmented_indices].view(-1,
+                                                                                                self.num_labels).masked_select(
                             sum_mask).view(-1, self.num_labels)
                         token_student_logits = logits[augmented_indices].view(-1, self.num_labels).masked_select(
                             sum_mask).view(-1, self.num_labels)
-                        ms_loss = KL(token_student_logits, token_teacher_logits.detach()) * self.ms_lambda
+                        r2_loss = KL(token_student_logits, token_teacher_logits.detach()) * self.r2_lambda
                 else:
-                    ms_loss = loss.data.new([0.0])
+                    r2_loss = loss.data.new([0.0])
 
-                if self.enable_kl_loss or self.noised_loss:
+                if self.enable_r1_loss or self.noised_loss:
                     if noised_input_ids is not None:
                         noised_word_embeds = self.roberta.embeddings.word_embeddings(noised_input_ids)
                         assert noised_attention_mask is not None
@@ -1122,7 +1122,7 @@ class XLMRobertaForTokenClassificationPoolingStable(BertPreTrainedModel):
                 else:
                     noised_loss = loss.data.new([0.0])
 
-                if self.enable_kl_loss:
+                if self.enable_r1_loss:
 
                     if self.use_align_label_probs:
                         src_pooling_count, src_probs, src_mask = get_align_probs(logits, src_pooling_ids)
@@ -1135,44 +1135,44 @@ class XLMRobertaForTokenClassificationPoolingStable(BertPreTrainedModel):
                         src_probs = src_probs.view(-1, src_probs.size(-1))[indices]
                         tgt_probs = tgt_probs.view(-1, src_probs.size(-1))[indices]
 
-                        align_kl_loss_f = KL_probs(src_probs, tgt_probs.detach()) / src_probs.size(0)
-                        align_kl_loss_b = KL_probs(tgt_probs, src_probs.detach()) / src_probs.size(0)
-                        align_kl_loss = align_kl_loss_b + align_kl_loss_f
+                        align_r1_loss_f = KL_probs(src_probs, tgt_probs.detach()) / src_probs.size(0)
+                        align_r1_loss_b = KL_probs(tgt_probs, src_probs.detach()) / src_probs.size(0)
+                        align_r1_loss = align_r1_loss_b + align_r1_loss_f
                     else:
-                        align_kl_loss = loss.data.new([0.0])
+                        align_r1_loss = loss.data.new([0.0])
 
                     if self.use_token_label_probs:
-                        original_indices = original_kl_mask.view(-1).eq(1).nonzero(as_tuple=False).view(-1).tolist()
-                        noised_indices = noised_kl_mask.view(-1).eq(1).nonzero(as_tuple=False).view(-1).tolist()
+                        original_indices = original_r1_mask.view(-1).eq(1).nonzero(as_tuple=False).view(-1).tolist()
+                        noised_indices = noised_r1_mask.view(-1).eq(1).nonzero(as_tuple=False).view(-1).tolist()
                         token_original_logits = logits.view(-1, self.num_labels)[original_indices]
                         token_noised_logits = noised_logits.view(-1, self.num_labels)[noised_indices]
 
-                        token_kl_loss_f = KL(token_noised_logits, token_original_logits.detach())
-                        token_kl_loss_b = KL(token_original_logits, token_noised_logits.detach())
+                        token_r1_loss_f = KL(token_noised_logits, token_original_logits.detach())
+                        token_r1_loss_b = KL(token_original_logits, token_noised_logits.detach())
                         if not self.disable_backward_kl:
-                            token_kl_loss = token_kl_loss_f + token_kl_loss_b
+                            token_r1_loss = token_r1_loss_f + token_r1_loss_b
                         else:
-                            token_kl_loss = token_kl_loss_f
+                            token_r1_loss = token_r1_loss_f
                     else:
-                        token_kl_loss = loss.data.new([0.0])
+                        token_r1_loss = loss.data.new([0.0])
 
                     if self.use_sentence_label_probs:
                         original_probs = get_label_probs(logits, labels.ne(loss_fct.ignore_index))
                         noised_probs = get_label_probs(noised_logits, noised_labels.ne(loss_fct.ignore_index))
 
-                        sentence_kl_loss_f = KL_probs(noised_probs, original_probs.detach()) / input_ids.size(0)
-                        sentence_kl_loss_b = KL_probs(original_probs, noised_probs.detach()) / input_ids.size(0)
-                        sentence_kl_loss = sentence_kl_loss_f + sentence_kl_loss_b
+                        sentence_r1_loss_f = KL_probs(noised_probs, original_probs.detach()) / input_ids.size(0)
+                        sentence_r1_loss_b = KL_probs(original_probs, noised_probs.detach()) / input_ids.size(0)
+                        sentence_r1_loss = sentence_r1_loss_f + sentence_r1_loss_b
                     else:
-                        sentence_kl_loss = loss.data.new([0.0])
+                        sentence_r1_loss = loss.data.new([0.0])
 
-                    kl_loss = (token_kl_loss + sentence_kl_loss + align_kl_loss) * self.kl_lambda
+                    r1_loss = (token_r1_loss + sentence_r1_loss + align_r1_loss) * self.r1_lambda
                 else:
-                    kl_loss = loss.data.new([0.0])
+                    r1_loss = loss.data.new([0.0])
 
-                loss = original_loss + noised_loss + kl_loss + ms_loss
+                loss = original_loss + noised_loss + r1_loss + r2_loss
 
-                # print(loss, original_loss, kl_loss, loss.eq(original_loss), loss - kl_loss)
-                outputs = (loss, original_loss, noised_loss, kl_loss, ms_loss) + outputs[1:]
+                # print(loss, original_loss, r1_loss, loss.eq(original_loss), loss - r1_loss)
+                outputs = (loss, original_loss, noised_loss, r1_loss, r2_loss) + outputs[1:]
 
         return outputs  # (loss), scores, (hidden_states), (attentions)
