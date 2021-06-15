@@ -2,7 +2,7 @@
 
 ## Environment
 
-DockerFile: `dancingsoul/pytorch:1.6.0-cuda10.1-cudnn7-devel-apex`
+DockerFile: `dancingsoul/pytorch:xTune`
 
 Install the fine-tuning code: `pip install --user .`
 
