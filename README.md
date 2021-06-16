@@ -75,6 +75,18 @@ bash ./scripts/train.sh cross-lingual-transfer xnli xlm-roberta-base 1
 bash ./scripts/train.sh cross-lingual-transfer xnli xlm-roberta-base 2
 ```
 
+## Paper
+Please cite our paper `\cite{bo2021xtune}` if you found the resources in the repository useful.
+
+```
+@inproceedings{bo2021xtune,
+author = {Bo Zheng, Li Dong, Shaohan Huang, Wenhui Wang, Zewen Chi, Saksham Singhal, Wanxiang Che, Ting Liu, Xia Song, Furu Wei},
+booktitle = {Proceedings of ACL 2021},
+title = {{Consistency Regularization for Cross-Lingual Fine-Tuning}},
+year = {2021}
+}
+```
+
 ## Reference
 
 1. https://github.com/google-research/xtreme
