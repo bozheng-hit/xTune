@@ -11,7 +11,7 @@ Install the fine-tuning code: `pip install --user .`
 
 ### XTREME Datasets  
 
-1) Create a download folder with mkdir -p download in the root of this project. 
+1) Create a download folder with `mkdir -p download` in the root of this project. 
 2) manually download `panx_dataset` (for NER) [here][2], (note that it will download as `AmazonPhotos.zip`) to the download directory.
 3) run the following command to download the remaining datasets: `bash scripts/download_data.sh`
 The code of downloading dataset from XTREME is from [xtreme offical repo][1].
@@ -27,7 +27,7 @@ The target language translations for panx and udpos are obtained with Google Tra
 
 ### Bi-lingual dictionaries
 
-We obtain the bi-lingual dictionaries from the [MUSE][6] repo. For convenience, you can download them from [here][7] and move it to the download directory, i.e., ./download/dicts.
+We obtain the bi-lingual dictionaries from the [MUSE][6] repo. For convenience, you can download them from [here][7] and move it to the download directory, i.e., `./download/dicts`.
 
 ### Models
 
