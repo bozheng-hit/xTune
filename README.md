@@ -1,5 +1,6 @@
 # xTune
 
+Code for ACL2021 paper [Consistency Regularization for Cross-Lingual Fine-Tuning](https://arxiv.org/pdf/2106.08226.pdf).
 ## Environment
 
 DockerFile: `dancingsoul/pytorch:xTune`
