@@ -58,6 +58,7 @@ if [ $STAGE == 1 ]; then
         --train_language en \
         --data_dir $DATA_DIR/$TASK/ \
         --per_gpu_train_batch_size $BATCH_SIZE \
+        --gradient_accumulation_steps $GRAD_ACC \
         --per_gpu_eval_batch_size 128 \
         --learning_rate $LR \
         --num_train_epochs $EPOCH \
@@ -95,6 +96,7 @@ elif [ $STAGE == 2 ]; then
         --train_language en \
         --data_dir $DATA_DIR/$TASK/ \
         --per_gpu_train_batch_size $BATCH_SIZE \
+        --gradient_accumulation_steps $GRAD_ACC \
         --per_gpu_eval_batch_size 128 \
         --learning_rate $LR \
         --num_train_epochs $EPOCH \

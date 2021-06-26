@@ -33,8 +33,8 @@ CSR=0.5
 R1_LAMBDA=5.0
 R2_LAMBDA=2.0
 if [ $MODEL == "xlm-roberta-large" ]; then
-  BATCH_SIZE=2
-  GRAD_ACC=16
+  BATCH_SIZE=16
+  GRAD_ACC=2
   LR=1e-5
 else
   BATCH_SIZE=32
