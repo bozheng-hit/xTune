@@ -19,6 +19,7 @@ STAGE=${2:-1}
 GPU=${3:-0}
 DATA_DIR=${4:-"$REPO/download/"}
 OUT_DIR=${5:-"$REPO/outputs/"}
+SEED=${6:-1}
 
 export CUDA_VISIBLE_DEVICES=$GPU
 
@@ -66,7 +67,7 @@ if [ $STAGE == 1 ]; then
         --logging_steps_in_sample -1 \
         --logging_each_epoch \
         --gpu_id 0 \
-        --seed 1 \
+        --seed $SEED \
         --fp16 --fp16_opt_level O2 \
         --warmup_steps -1 \
         --enable_r1_loss \
@@ -100,7 +101,7 @@ elif [ $STAGE == 2 ]; then
         --logging_steps_in_sample -1 \
         --logging_each_epoch \
         --gpu_id 0 \
-        --seed 1 \
+        --seed $SEED \
         --fp16 --fp16_opt_level O2 \
         --warmup_steps -1 \
         --enable_r1_loss \

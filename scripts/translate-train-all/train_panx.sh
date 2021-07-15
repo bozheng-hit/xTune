@@ -19,6 +19,7 @@ STAGE=${2:-1}
 GPU=${3:-0}
 DATA_DIR=${4:-"$REPO/download/"}
 OUT_DIR=${5:-"$REPO/outputs/"}
+SEED=${6:-1}
 
 export CUDA_VISIBLE_DEVICES=$GPU
 
@@ -72,7 +73,7 @@ if [ $STAGE == 1 ]; then
         --evaluate_during_training \
         --logging_steps 50 \
         --evaluate_steps $EVALUATE_STEPS \
-        --seed 1 \
+        --seed $SEED \
         --warmup_steps -1 \
         --save_only_best_checkpoint \
         --eval_all_checkpoints \
@@ -112,7 +113,7 @@ elif [ $STAGE == 2 ]; then
         --evaluate_during_training \
         --logging_steps 50 \
         --evaluate_steps $EVALUATE_STEPS \
-        --seed 1 \
+        --seed $SEED \
         --warmup_steps -1 \
         --save_only_best_checkpoint \
         --eval_all_checkpoints \

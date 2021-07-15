@@ -21,7 +21,7 @@ STAGE=${4:-1}
 GPU=${5:-0}
 DATA_DIR=${6:-"$REPO/download/"}
 OUT_DIR=${7:-"$REPO/outputs/"}
-
+SEED=${8:-1}
 
 echo "Fine-tuning $MODEL on $TASK using GPU $GPU in STAGE $STAGE with SETTING $SETTING"
 echo "Load data from $DATA_DIR, and save models to $OUT_DIR"
@@ -32,4 +32,4 @@ elif [ $TASK == "panx" ]; then
   bash $REPO/scripts/preprocess_panx.sh $MODEL $DATA_DIR
 fi
 
-bash $REPO/scripts/$SETTING/train_${TASK}.sh $MODEL $STAGE $GPU $DATA_DIR $OUT_DIR
+bash $REPO/scripts/$SETTING/train_${TASK}.sh $MODEL $STAGE $GPU $DATA_DIR $OUT_DIR $SEED
